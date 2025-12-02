@@ -103,13 +103,20 @@ const verbs = [
     { v1: "write", v2: "wrote", es: "escribir" }
 ];
 
+
+// VARIABLES DE ESTADO
 let currentMode = ''; 
 let currentVerb = null;
+let currentVerbIndex = -1; // Para saber qué verbo estamos jugando
 let isChecking = false; 
-let remainingIndices = []; // El "mazo" de cartas disponibles
+let remainingIndices = []; // Cartas disponibles en esta ronda
+let wrongIndices = []; // Índices de los que hemos fallado
+let totalRoundQuestions = 0; // Para el contador "X / Total"
 
 const startScreen = document.getElementById('start-screen');
 const gameScreen = document.getElementById('game-screen');
+const endScreen = document.getElementById('end-screen');
+
 const verbQuestion = document.getElementById('verb-question');
 const questionLabel = document.getElementById('question-label');
 const input = document.getElementById('user-answer');
@@ -120,36 +127,54 @@ const feedbackMsg = document.getElementById('feedback-msg');
 const verbMeaning = document.getElementById('verb-meaning');
 const counter = document.getElementById('counter');
 
-function initializeDeck() {
-    // Llenamos el array con los números del 0 al total-1
+// Elementos de la pantalla final
+const scoreSummary = document.getElementById('score-summary');
+const errorsContainer = document.getElementById('errors-container');
+const errorsList = document.getElementById('errors-list');
+
+// INICIO DEL JUEGO COMPLETO
+function startFullGame(mode) {
+    currentMode = mode;
+    // Llenamos el mazo con TODOS (0 a 95)
     remainingIndices = [];
     for (let i = 0; i < verbs.length; i++) {
         remainingIndices.push(i);
     }
+    
+    startGameLogic();
 }
 
-function startGame(mode) {
-    currentMode = mode;
-    initializeDeck(); // Preparamos el mazo nuevo
+// INICIO DEL REPASO DE ERRORES
+function startErrorReview() {
+    // El mazo ahora son solo los índices que fallamos
+    remainingIndices = [...wrongIndices];
+    startGameLogic();
+}
+
+// LÓGICA COMÚN DE ARRANQUE
+function startGameLogic() {
+    wrongIndices = []; // Reseteamos los errores de la NUEVA ronda
+    totalRoundQuestions = remainingIndices.length; // Fijamos el total para el contador
     
     startScreen.classList.remove('active');
+    endScreen.classList.remove('active');
     gameScreen.classList.add('active');
-    loadNewQuestion();
     
-    // Enfocar el input
+    loadNewQuestion();
     setTimeout(() => input.focus(), 100);
 }
 
 function goHome() {
     gameScreen.classList.remove('active');
+    endScreen.classList.remove('active');
     startScreen.classList.add('active');
 }
 
 function loadNewQuestion() {
-    // 1. Verificar si el mazo está vacío
+    // 1. Verificar si la ronda ha terminado
     if (remainingIndices.length === 0) {
-        // Si está vacío, rellenamos y seguimos (vuelta a empezar)
-        initializeDeck();
+        showResults();
+        return;
     }
 
     // Reset UI
@@ -161,19 +186,19 @@ function loadNewQuestion() {
     actionBtn.innerText = 'Comprobar';
     actionBtn.classList.remove('btn-secondary');
     
-    // 2. Seleccionar un índice aleatorio DEL MAZO DISPONIBLE
+    // 2. Sacar carta aleatoria del mazo
     const randomIndexPosition = Math.floor(Math.random() * remainingIndices.length);
-    const verbIndex = remainingIndices[randomIndexPosition];
+    currentVerbIndex = remainingIndices[randomIndexPosition];
     
-    // 3. Eliminar ese índice del mazo para que no salga más en esta ronda
+    // 3. Eliminar esa carta del mazo actual
     remainingIndices.splice(randomIndexPosition, 1);
 
-    currentVerb = verbs[verbIndex];
+    currentVerb = verbs[currentVerbIndex];
 
-    // 4. Actualizar el contador
-    // Total - restantes = los que llevamos hechos (incluyendo el actual)
-    const currentCount = verbs.length - remainingIndices.length;
-    counter.innerText = `${currentCount} / ${verbs.length}`;
+    // 4. Actualizar contador: (TotalInicial - Restantes) / TotalInicial
+    // Como ya borramos uno del array, si empezamos con 5 y queda 4, llevamos 1.
+    const currentNumber = totalRoundQuestions - remainingIndices.length;
+    counter.innerText = `${currentNumber} / ${totalRoundQuestions}`;
 
     if (currentMode === 'v1_to_v2') {
         questionLabel.innerText = "Escribe el PAST SIMPLE (V2) de:";
@@ -188,23 +213,17 @@ function loadNewQuestion() {
 
 function checkAnswer() {
     if (isChecking) {
-        // Si ya comprobamos, el botón sirve para ir a "Siguiente"
         loadNewQuestion();
         return;
     }
 
     const userAnswer = input.value.trim().toLowerCase();
-    
     if (!userAnswer) return; 
 
     let correctAnswerRaw = (currentMode === 'v1_to_v2') ? currentVerb.v2 : currentVerb.v1;
-    
-    // Limpiamos respuestas compuestas para comparación
     const validAnswers = correctAnswerRaw.split('/').map(w => w.trim().toLowerCase());
-    
     const isCorrect = validAnswers.includes(userAnswer);
 
-    // Mostrar Feedback
     feedbackArea.style.display = 'block';
     
     if (isCorrect) {
@@ -215,19 +234,61 @@ function checkAnswer() {
         feedbackArea.className = 'feedback incorrect';
         feedbackTitle.innerText = 'Incorrecto';
         feedbackMsg.innerText = `La respuesta correcta era: ${correctAnswerRaw}`;
+        
+        // ¡IMPORTANTE! Guardamos el índice en la lista de errores si no estaba ya
+        if (!wrongIndices.includes(currentVerbIndex)) {
+            wrongIndices.push(currentVerbIndex);
+        }
     }
 
-    // Añadir significado
     verbMeaning.innerText = `Significado: ${currentVerb.es}`;
-
-    // Cambiar estado del juego
     isChecking = true;
     input.disabled = true;
     actionBtn.innerText = 'Siguiente Verbo →';
     actionBtn.focus(); 
 }
 
-// Permitir pulsar Enter para enviar
+function showResults() {
+    gameScreen.classList.remove('active');
+    endScreen.classList.add('active');
+
+    const total = totalRoundQuestions;
+    const errors = wrongIndices.length;
+    const correct = total - errors;
+    
+    // Resumen
+    scoreSummary.innerHTML = `
+        <p>Aciertos: <strong style="color:var(--success)">${correct}</strong></p>
+        <p>Fallos: <strong style="color:var(--error)">${errors}</strong></p>
+    `;
+
+    // Lista de errores
+    errorsList.innerHTML = '';
+    if (errors > 0) {
+        errorsContainer.style.display = 'block';
+        
+        wrongIndices.forEach(index => {
+            const verb = verbs[index];
+            const div = document.createElement('div');
+            div.className = 'error-item';
+            
+            // Mostramos qué falló
+            let text = '';
+            if (currentMode === 'v1_to_v2') {
+                text = `<strong>${verb.v1}</strong> ➞ se escribe <strong>${verb.v2}</strong>`;
+            } else {
+                text = `<strong>${verb.v2}</strong> ➞ se escribe <strong>${verb.v1}</strong>`;
+            }
+            div.innerHTML = text;
+            errorsList.appendChild(div);
+        });
+    } else {
+        errorsContainer.style.display = 'none';
+        scoreSummary.innerHTML += `<p style="color:var(--primary); font-weight:bold; margin-top:10px;">¡PERFECTO! 🎉</p>`;
+    }
+}
+
+// Enter para enviar
 input.addEventListener("keypress", function(event) {
     if (event.key === "Enter") {
         event.preventDefault();
