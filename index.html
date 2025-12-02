@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrenador de Verbos Irregulares - Modo Mazo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <div id="start-screen" class="screen active">
+        <h1>Irregular Verbs</h1>
+        <p class="subtitle">Modo Repaso Completo</p>
+        
+        <button class="btn" onclick="startGame('v1_to_v2')">
+            Base Form (V1) ➞ Past Simple (V2)
+        </button>
+        <button class="btn" onclick="startGame('v2_to_v1')">
+            Past Simple (V2) ➞ Base Form (V1)
+        </button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="header">
+            <button onclick="goHome()" class="back-btn">&larr; Salir</button>
+            <span id="counter" class="counter-badge">0/0</span>
+        </div>
+
+        <div class="label" id="question-label">PREGUNTA</div>
+        <div class="verb-display" id="verb-question">---</div>
+        
+        <div class="input-group">
+            <input type="text" id="user-answer" placeholder="Escribe aquí..." autocomplete="off">
+        </div>
+
+        <button id="action-btn" class="btn" onclick="checkAnswer()">Comprobar</button>
+
+        <div id="feedback-area" class="feedback">
+            <h3 id="feedback-title"></h3>
+            <p id="feedback-msg"></p>
+            <span id="verb-meaning" class="meaning"></span>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
